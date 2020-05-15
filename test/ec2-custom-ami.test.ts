@@ -1,21 +1,55 @@
-import { expect as expectCDK, haveResource } from '@aws-cdk/assert';
-import * as cdk from '@aws-cdk/core';
-import * as Ec2CustomAmi from '../lib/ec2-custom-ami-stack';
+#!/usr/bin/env node
+import { expect as expectCDK, matchTemplate, haveResourceLike, MatchStyle, SynthUtils } from '@aws-cdk/assert';
+import { App, Stack } from '@aws-cdk/core';
+import { Ec2CustomAmiStack, customAmi } from '../lib/ec2-custom-ami-stack';
 
-test('SQS Queue Created', () => {
-    const app = new cdk.App();
+function createTestStack(app: App): Stack {
+  return new Ec2CustomAmiStack(app, 'Ec2CustomAmiStack', { env: { region: 'eu-central-1' }})
+}
+
+describe('Synthesized template can be created', () => {
+  it('should not be empty', () => {
+    const app: App = new App();
     // WHEN
-    const stack = new Ec2CustomAmi.Ec2CustomAmiStack(app, 'MyTestStack');
+    const stack: Stack = createTestStack(app);
     // THEN
-    expectCDK(stack).to(haveResource("AWS::SQS::Queue",{
-      VisibilityTimeout: 300
+    expectCDK(stack).notTo(matchTemplate({
+      "Resources": {}
+    }, MatchStyle.EXACT))
+  });
+
+
+  it('should contain a EC2 instance resource referencing the custom machine image', () => {
+    const app: App = new App();
+    // WHEN
+    const stack: Stack = createTestStack(app);
+    // THEN
+    expectCDK(stack).to(haveResourceLike("AWS::EC2::Instance", {
+      ImageId: customAmi
     }));
+  });
+
+
 });
 
-test('SNS Topic Created', () => {
-  const app = new cdk.App();
-  // WHEN
-  const stack = new Ec2CustomAmi.Ec2CustomAmiStack(app, 'MyTestStack');
-  // THEN
-  expectCDK(stack).to(haveResource("AWS::SNS::Topic"));
+describe("CDK synthesis result", () => {
+
+  it('should define 2 artifacts and 1 stack', () => {
+    const app: App = new App();
+    // WHEN
+    const stack: Stack = createTestStack(app);
+    const assembly = app.synth();
+
+    // THEN
+    expect(assembly.artifacts).toHaveLength(2);
+    expect(assembly.stacks).toHaveLength(1);
+  });
+
+  it('should match the snapshot', () => {
+    const app: App = new App();
+    // WHEN
+    const stack: Stack = createTestStack(app);
+    // THEN
+    expect(SynthUtils.toCloudFormation(stack)).toMatchSnapshot();
+  });
 });
