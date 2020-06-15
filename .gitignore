@@ -12,3 +12,6 @@ cdk.out
 # Parcel build directories
 .cache
 .build
+
+# application specific
+**/*-license
